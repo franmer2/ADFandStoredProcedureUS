@@ -4,7 +4,7 @@ In a project with a client, one step was to transform files, deposited in blob s
 
 This article aims to share the different steps to achieve this transformation pipeline and the various tricks used to carry out this part of the project.
 
-
+![sparkle](Pictures/300.png)
 
 ## Prerequisite
 
