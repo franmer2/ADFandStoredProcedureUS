@@ -401,7 +401,7 @@ BEGIN
 
 ![sparkle](Pictures/048.png)
 
-It is possible to test the stored procedure by downloading the sample file (which is in the [github](https://github.com/franmer2/ADFandStoredProcedProcedure/blob/master/Resources/test.csv)) at the root of the container.
+It is possible to test the stored procedure by downloading the sample file (which is in the [github](https://github.com/franmer2/ADFandStoredProcedureUS/blob/master/Resources/test.csv)) at the root of the container.
 
 
 ![sparkle](Pictures/049.png)
