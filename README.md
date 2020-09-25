@@ -1,215 +1,222 @@
 # Azure Data Factory et procedure stockée (Azure SQL Database)
 
-Lors d'un projet avec un client, une étape consistait à transformer des fichiers, déposés dans un stockage blob, à l'aide d'une procédure stockée existante, puis de déplacer le résultat dans un stockage "Azure Files".
+In a project with a client, one step was to transform files, deposited in blob storage, using an existing stored procedure, and then move the result to an "Azure Files" storage. I found it interesting to use the copy activity with a stored procedure sourced.
 
-Cet article a pour but de partager les différentes étapes pour réaliser ce pipeline de transformation et ainsi que les différentes astuces utilisées pour mener à bien cette partie du projet
+This article aims to share the different steps to achieve this transformation pipeline and the various tricks used to carry out this part of the project.
 
 
-## Pré requis
 
-- [Un abonnement Azure](https://azure.microsoft.com/fr-fr/free/)
+## Prerequisite
+
+- [An Azure subscription](https://azure.microsoft.com/fr-fr/free/)
 - [Azure Storage Explorer](https://azure.microsoft.com/en-us/features/storage-explorer/) 
 
 
 
-# Création des services Azure
-## Création d'un groupe de ressources
-Nous allons commencer par créer un groupe de ressouces afin d'héberger les différents services de notre solution de transcription de fichiers audio.
+# Creating Azure services
+## Resource group
+We will start by creating a group of resources to host the different services of our solution.
 
-Depuis le portail [Azure](https://portal.azure.com), cliquez sur "**Create a resource**"
+From [Azure portal](https://portal.azure.com), click "**Create a resource**"
 
 ![sparkle](Pictures/001.png)
 
- Puis, recherchez "**Resource group**"
+ Then, look for "**Resource group**"
 
  ![sparkle](Pictures/002.png)
 
 
-Cliquez sur le bouton "**Create**"
+Click "**Create**"
 
 ![sparkle](Pictures/003.png)
 
-Dans le champ "**Resource group**", donnez un nom à votre groupe de ressources. Cliquez sur le bouton "**Review + Create**"
+
+In the "**Resource group**" field, give a name to your resource group. Click on the "**Review + Create**" button
+
 
 ![sparkle](Pictures/004.png)
 
-Dans l'écran de validation, cliquez sur le bouton "**Create**"
+In the validation screen, click on the "**Create**" button
 
 ![sparkle](Pictures/005.png)
 
-Revenez à l'accueil du portail Azure. Cliquez sur le menu burger en haut à gauche puis sur "**Resource** **groups**"
+Return to the Azure portal home. Click on the burger menu at the top left then on "**Resource groups**"
 
 ![sparkle](Pictures/006.png)
 
-Cliquez sur le groupe de ressources créé précédement
+Click on the resource group created previously
 
 ![sparkle](Pictures/007.png)
 
-## Création du compte de stockage
+## Azure Storage account
 
-Une fois dans le groupe de ressources, cliquez sur le bouton "**Add**"
+Once in the resource group, click the button  "**Add**"
 
 ![sparkle](Pictures/008.png)
 
-Recherchez le compte de stockage
+Search for storage account 
 
 ![sparkle](Pictures/009.png)
 
-Cliquez sur le bouton "**Create**"
+Click "**Create**"
 
 ![sparkle](Pictures/010.png)
 
 
-Complétez la création du compte de stockage et cliquez sur "**Review** + **create**"
+Complete the account storage creation and click "**Review** + **create**"
 
 ![sparkle](Pictures/011.png)
 
-Après avoir vérifié les informations de création du compte de stockage, cliquez sur le bouton "**Create**"
+After checking the storage account creation information, click the button "**Create**"
 
 ![sparkle](Pictures/012.png)
 
-## Création d'une base de données Azure SQL
-Ici, nous allons créer une base de données uniquement pour héberger et exécuter notre procédure stockée. Vous pouvez donc, si vous le souhiatez, utiliser une base de données Azure éxistante.
+## Azure SQL database creation
+Here we will create a database only to host and execute our stored procedure. So, if you wish, you can use an existing Azure database.
 
-Retournez dans le groupe de ressources. Vous devez avoir votre compte de stockage comme première resource.
+Go back to the resource group. You must have your storage account as your first resource.
 
-Cliquez sur le bouton "**Add**"
+Click "**Add**"
 
 ![sparkle](Pictures/013.png)
 
-Puis, recherchez "**Azure SQL**" 
+Then, look for "**Azure SQL**" 
 
 ![sparkle](Pictures/014.png)
 
-Cliquez sur le bouton **Create**
+Click **Create**
 
 ![sparkle](Pictures/015.png)
 
-Choisissez **SQL Database** puis cliquez sur le bouton **Create**
+Select **SQL Database** then click **Create**
 
 ![sparkle](Pictures/016.png)
 
-Choisissez le groupe de ressouces précédement créé, définissez le nom de la base de données et créez un nouveau server SQL (il est aussi possible d'utiliser un serveur existant)
+Choose the previously created resource group, set the name of the database and create a new SQL server (it's also possible to use an existing server)
 
-Un tier **Basic** sera largement suffiment pour notre démonstration
+A **"Basic"** tier will be more than enough for our demonstration
 
-Cliquez sur le bouton **"Review + create"**
+Click **"Review + create"**
 
 
 ![sparkle](Pictures/017.png)
 
-Cliquez sur le bouton **"Create"**
+Click **"Create"**
 
 ![sparkle](Pictures/018.png)
 
-Après le déploiement de votre base de données Azure SQL et du server Azure SQL vous devez avoir 3 services dans votre groupe de ressources
+After deploying your Azure SQL database and Azure SQL server you need to have 3 services in your resource group
 
 ![sparkle](Pictures/019.png)
 
-## Création du service Azure Data Factory (ADF)
+## Azure Data Factory (ADF)
 
-Dans votre groupe de ressources, cliquez sur le bouton **" + Add"**
+In your resource group, click **" + Add"**
 
 ![sparkle](Pictures/020.png)
 
-Dans la barre de recherche entrez **"Data Factory"**
+In the search bar enter **"Data Factory"**
 
 ![sparkle](Pictures/021.png)
 
-Puis cliquez sur le bouton **"Create"**
+Then click **"Create"**
 
 ![sparkle](Pictures/022.png)
 
-Vérifiez que vous avez bien sélectionné le bon groupe de ressources et donnez un nom à votre service ADF.
+Make sure you've selected the right resource group and name your ADF service.
 
-Sélectionnez **"V2"** pour la version.
+Select **"V2"**
 
-Cliquez sur le bouton **"Next: Git configuration "**
+Click **"Next: Git configuration "**
 
 ![sparkle](Pictures/023.png)
 
-Cochez la case **"Configure Git Later"** et cliquez sur le bouton **"Review + create"**
+Check the **"Configure Git Later"** box and click **"Review + create"**
 
 ![sparkle](Pictures/024.png)
 
-Dans la page de validation, ciquez sur le bouton **"Create"**
+In the validation page, click**"Create"**
 
 ![sparkle](Pictures/025.png)
 
-Après la création du service Azure Data Factory, vous devriez avoir 4 services dans votre groupe de ressources
+After creating the Azure Data Factory service, you should have 4 services in your resource group
 
 ![sparkle](Pictures/026.png)
 
-## Préparation de la procédure stockée.
+## Preparing the stored procedure
 
-Dans notre exemple, la procédure stockée va lire des données dans un stockage blob et effectuer des transformations. Les transformations réalisées ici seront extrêmement basiques. Le but ici est d'illustrer l'utilisation des procédures stockées avec Azure Data Factory.
+In our example, the stored procedure will read data in blob storage and perform transformations. The transformations made here will be extremely basic. The aim here is to illustrate the use of procedures stored with Azure Data Factory.
 
-### Paramètrage du serveur Azure SQL
+### Azure SQL server setting
 
-Configurez le Firewall du serveur Azure SQL afin de pouvoir vous y connecter avec des outils comme SQL Server Management Studio ou Azure Data Studio
+Set up the Azure SQL server Firewall so you can connect to it with tools like SQL Server Management Studio or Azure Data Studio
 
-Depuis le portail Azure, sélection votre serveur Azure SQL, puis cliquez sur **"Firewalls and virtual networks"**
+From the Azure portal, select your Azure SQL server, then click **"Firewalls and virtual networks"**
 
-Saisissez les adresses ip nécessaires.
+Enter the necessary ip addresses.
 
 ![sparkle](Pictures/027.png)
 
 
-Après configuration des adresses ip, cliquez sur le bouton **"Save"**
+After setting up ip addresses, click the button **"Save"**
 
 ![sparkle](Pictures/028.png)
 
-### Crétion du fichier de format
+### File format creation process
 
-La procédure stockée va utiliser la fonction [OPENROWSET](https://docs.microsoft.com/fr-fr/sql/t-sql/functions/openrowset-transact-sql?view=sql-server-ver15). Et comme on souhaite récupérer les informations du fichier dans le but de faire des opérations sur les données, nous avons besoin de définir un [fichier de format](https://docs.microsoft.com/en-us/sql/t-sql/functions/openrowset-transact-sql?view=sql-server-ver15).
+The stored procedure will use the function [OPENROWSET](https://docs.microsoft.com/en-us/sql/t-sql/functions/openrowset-transact-sql?view-sql-server-ver15). And because we want to retrieve the information from the file in order to do data operations, we need to define a [format file](https://docs.microsoft.com/en-us/sql/t-sql/functions/openrowset-transact-sql?view-sql-server-ver15)..
 
-Le format des fichiers que nous allons traiter pour cet exemple est très simple. Il est constitué de 3 colonnes :
+The format of the files we will process for this example is very simple. It consists of 3 columns:
 
-- Nom
-- Prénom
-- Vente
+- Name
+- First Name
+- Sale
 
-La création du fichier de format va se faire en 3 étapes
+The creation of the format file will be done in 3 steps
 
-- Création d'une table SQL correspodant au format du fichier
-- Utilisation de l'outil BCP pour créer le fichier de format
-- Téléchargement du fichier dans le compte de stockage
+- Creating a SQL table that matches the file format
+- Using the BCP tool to create the format file
+- Download the file to the storage account
 
 
-#### Création de la table SQL
+#### SQL Table creation
 
-Avec [Azure Data Studio](https://docs.microsoft.com/fr-fr/sql/azure-data-studio/download-azure-data-studio?view=sql-server-ver15), connectez vous à votre base Azure SQL, avec les touches **Ctrl** et **N** créé un nouveau fichier SQL
+With [Azure Data Studio](https://docs.microsoft.com/en-us/sql/azure-data-studio/download-azure-data-studio?view-sql-server-ver15), connect to your Azure SQL database, and then create a new SQL file with a combination of **"Ctrl"** and **"N"** keys.
+
 
 ![sparkle](Pictures/029.png)
 
 
-Puis copiez le script ci-dessous. Cliquez sur le bouton "Play"
+Then copy the script below. Click on the **"Play"** button
 
 
 
+```Javascript
 CREATE TABLE [dbo].[MyFirstImport](
 	[LastName] [varchar](30) NULL,
 	[FirstName] [varchar](25) NULL,
 	[Sales] [int] NULL
 ) ON [PRIMARY]
 GO
+```
 
 
 ![sparkle](Pictures/030.png)
 
-Si tout se passe bien vous devriez avoir le message suivant et accès à votre table via le menu de gauche
+If all goes well you should have the following message and access to your table via the menu on the left
+
 
 ![sparkle](Pictures/031.png)
 
-### Création du fichier de format
+#### Création du fichier de format
 
-Assurez-vous d'avoir la dernière version de l'outil BCP. Pour cet exemple, j'ai utilisé la [version 15](https://docs.microsoft.com/en-us/sql/tools/bcp-utility?view=sql-server-ver15).
+Make sure you have the latest version of the BCP tool. For this example, I used [version 15](https://docs.microsoft.com/en-us/sql/tools/bcp-utility?view-sql-server-ver15).
 
-Pour être certains d'utiliser la bonne version de l'outil BCP, allez dans le répertoire d'installation. Dans mon cas le répertoire est :
+To make sure you're using the right version of the BCP tool, go to the installation directory. In my case the directory is:
 
 C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn
 
-Puis utilisez la commande suivante (J'ai un répetoire *Temp* sur mon disque C:)
+Then use the following command (I have a **"Temp"** directory on my C drive)
 
 ```javascript
 
@@ -217,118 +224,122 @@ bcp dbo.MyFirstImport format nul -c -x -f C:\Temp\format.xml -t, -U <Your User> 
 
 ```
 
-Une illustration ci-dessous :
+See below:
 ![sparkle](Pictures/032.png)
 
 
-Youd devez obtenir le ficier de format dans le répertoire spécifié avac la commande BCP
+You need to get the format file in the specified directory with the BCP command
 
 ![sparkle](Pictures/033.png)
 
 
-### Téléchargez le fichier format dans le compte de stockage Azure
+#### Download the format file in the Azure storage account
 
-Depuis le portail Azure, allez sur votre compte de stockage
+From the Azure portal, go to your storage account
+
 
 ![sparkle](Pictures/034.png)
 
-Puis cliquez sur **"Containers"**
+Click **"Containers"**
 
 ![sparkle](Pictures/035.png)
 
-Et cliquez sur le bouton **"+ Container"**
+And click **"+ Container"**
 
 
 ![sparkle](Pictures/036.png)
 
-Donnez un nom et cliquez sur le bouton **"Create"**
+Give a name and click **"Create"**
 
 ![sparkle](Pictures/037.png)
 
-Nous allons créer un répertoire pour notre fichier de format.
+We will create a directory for our format file.
 
-Cliquez sur **"Storage Explorer (preview)"**, sélectionnez le conteneur créé précédement, puis cliquez sur **"New Folder"**
+Click on **"Storage Explorer (preview),"** select the container created previously, and then click **"New Folder"**
 
 ![sparkle](Pictures/038.png)
 
-Donnez un nom au répertoire et cliquez sur le bouton **"Ok"**
+Name the directory and click the button **"Ok"**
 
 ![sparkle](Pictures/039.png)
 
-Cliquez sur le bouton **"Upload"** et téléchargez le fichier de format précédement créé avec la fonction BCP.
+Click the **"Upload"** button and download the format file previously created with the BCP function.
 
 ![sparkle](Pictures/040.png)
 
-Votre fichier est maintenant téléchargé.
+The file is ready
 
 ![sparkle](Pictures/041.png)
 
-### Préparation du partage de fichier
+### Azure File setup
 
-Depuis le portail Azure, sélectionnez votre compte de stockage puis cliquez sur **"File shares"**
+From the Azure portal, select your storage account and click **"File shares"**
 
 ![sparkle](Pictures/0411.png)
 
-Cliquez sur le bouton **"+ File share"**
+Click **"+ File share"**
 
 ![sparkle](Pictures/0412.png)
 
-Donnez un nom à votre partage de fichier puis cliquez sur le bouton **"Create"**
+Give your file sharing a name and then click the button **"Create"**
 
 ![sparkle](Pictures/0413.png)
 
-Vous devriez obtenir un résultat similaire à la copie d'écran ci-dessous :
+You should get a result similar to the screen copy below:
 
 ![sparkle](Pictures/0414.png)
 
 
-## Création de la procédure stockée
+## Stored procedure
 
-Notre procédure stockée va lire des fichiers qui se trouvent dans notre compte de stockage et effectuer des opéations sur les données qu'elle va récupérer.
+Our stored procedure will read files that are in our storage account and perform operations on the data it will recover.
 
-Il est donc néccessaire de faire des étapes préliminaires pour permettre à la procédure stockée d'accéder au compte de stockage
+Preliminary steps are therefore needed to allow the stored procedure to access the storage account.
 
-- Création d'une signature d'accès partagé (compte de stockage) [(Documentation)](https://docs.microsoft.com/fr-fr/azure/storage/common/storage-sas-overview)
-- Création d'une clef principale de base de données [(Doucumentation)](https://docs.microsoft.com/fr-fr/sql/t-sql/statements/create-master-key-transact-sql?view=sql-server-ver15)
+- Creating a shared access signature (storage account) [(Documentation)] (https://docs.microsoft.com/en-us/azure/storage/common storage-sas-overview)
 
-- Création des informations d'identification pour accéder au compte de stockage [(Documetation)](https://docs.microsoft.com/fr-fr/sql/t-sql/statements/create-database-scoped-credential-transact-sql?view=sql-server-ver15)
-- Création d'une source externe [(Documentation)](https://docs.microsoft.com/fr-fr/sql/t-sql/statements/create-external-data-source-transact-sql?view=sql-server-ver15)
+- Creating a database master key [(Documentation)](https://docs.microsoft.com/en-us/sql/t-sql/statements/create-master-key-transact-sql?view-sql-server-ver15)
+
+- Creating credentials to access the storage account [(Documentation)](https://docs.microsoft.com/en-us/sql/t-sql/statements/create-database-scoped-credential-transact-sql?view-sql-server-ver15)
+
+- Creating an external source [(Documentation)]) (https://docs.microsoft.com/en-us/sql/t-sql/statements/create-external-data-source-transact-sql?view-sql-server-ver15)
 
 
-### Création d'une signature d'accès partagé (Compte de Stockage)
 
-Depuis le portail Azure, allez dans votre compte de stockage puis cliquez sur **"Shared Access Signature"**.
+### Creating a shared access signature (Storage Account)
 
-Définissez les options de la signature d'accès partagé puis cliquez sur le bouton **"Generate SAS and connection string"**
+From the Azure portal, go to your storage account and click **"Shared Access Signature."**
+
+Set the options for the shared access signature and then click the **"Generate SAS and connection string"** button.
 
 
 ![sparkle](Pictures/042.png)
 
 
-Copiez le contenu du champ **"SAS Token"** puis gardez le sous la main, on va en avoir besoin un peu plus tard.
+Copy the contents of the field **"SAS Token"** and then keep it on hand, we'll need it a little bit later.
 
 ![sparkle](Pictures/043.png)
 
 
-### Création d'une clef principale de base de données (Azure SQL)
+### Database master key creation (Azure SQL)
 
-Depuis Azure Data Studio, copiez la reqûete ci-dessous :
+From Azure Data Studio, copy the query below:
 
 ```javascript
 CREATE MASTER KEY ENCRYPTION BY PASSWORD='<EnterStrongPasswordHere>';
 
 ```
 
-Puis cliquez sur le bouton **Run**
+Then click the button **Run**
 
 ![sparkle](Pictures/044.png)
 
 
-### Création des informations d'identification pour accéder au compte de stockage
+### Creating credentials to access the storage account
 
-Depuis Azure Data Studio, exécutez le script ci-dessous :
+From Azure Data Studio, run the script below:
 
-**ATTENTION !!!!**, retirer le signe **"?"** après avoir copier votre signature d'accès partagé. 
+**"WARNING!!!! "** Remove the sign **"?"** After copying your shared access signature.
 
 ```javascript
 CREATE DATABASE SCOPED CREDENTIAL AccessAzureStorage
@@ -339,13 +350,13 @@ WITH
 
 ```
 
-Pour plus de clarté, voici une copie d'écran
+For clarity, here's a screenshot
 
 ![sparkle](Pictures/045.png)
 
-### Création des informations d'identification pour accéder au compte de stockage 
+### Creating credentials to access the storage account
 
-Depuis Azure Data Studio, exécutez le script ci-dessous :
+From Azure Data Studio, run the script below:
 
 ```javascript
 CREATE EXTERNAL DATA SOURCE AzureStorageExternalData
@@ -357,17 +368,17 @@ WITH
 
 ```
 
-Remplacez <YOUR LOCATION> par le chemin de votre conteneur. Cette information peut être retouvée dans le portail Azure, dans les propriétés de du conteneur
+Replace <YOUR LOCATION> with your container path. This information can be found in the Azure portal, in the container's properties
 
 ![sparkle](Pictures/046.png)
 
-Ci-dessous une copie d'écran dans Azure Data Studio :
+Below is a screenshot in Azure Data Studio:
 
 ![sparkle](Pictures/047.png)
 
-### Création de la procédure stockée
+### Creating the stored procedure
 
-Dans Azure Data Studio, copiez le script ci-dessous :
+In Azure Data Studio, copy the script below:
 
 ```javascript
 CREATE PROCEDURE Franmer
@@ -390,135 +401,139 @@ BEGIN
 
 ![sparkle](Pictures/048.png)
 
-Il est possible de tester la procédure stockée en téléchargeant le fichier d'exemple (qui se trouve dans le [github](https://github.com/franmer2/ADFandStoredProcedure/blob/master/Resources/test.csv)) à la racine du conteneur.
+It is possible to test the stored procedure by downloading the sample file (which is in the [github](https://github.com/franmer2/ADFandStoredProcedProcedure/blob/master/Resources/test.csv)) at the root of the container.
 
 
 ![sparkle](Pictures/049.png)
 
-Puis dans Azure Data Studio, entrez le script ci-dessous:
+Then in Azure Data Studio, enter the script below:
 
 ```Javascript
 EXECUTE franmer @MyFileName='test.csv'
 ```
 
-Si tout se déroule comme prévu, vous devriez obtenir le résultat suivant :
+If everything goes according to plan, you should get the following result:
 
 ![sparkle](Pictures/050.png)
 
-## Création du pipeline Azure Data Factory
+## Azure Data Factory Pipeline
 
-Depuis le portail Azure, retrouvez votre service Azure Data Factory, puis cliquez sur **"Author & Monitor"**
+From the Azure portal, find your Azure Data Factory service, then click **"Author & Monitor"**
 
 ![sparkle](Pictures/051.png)
 
-## Création des services liés
-### Service lié Blob Storage
+## Linked services création
+### Azure Blob storage linked service
 
-Une fois sur la pagge d'accueil d'AZure Data Factory, cliquez sur le bouton **"Manage"** à gauche de l'écran
+Once on the Azure Data Factory homepage, click the **"Manage"** button to the left of the screen
 
 
 ![sparkle](Pictures/052.png)
 
 
-Cliquez sur **"Linked services"** puis sur le bouton **"+ New"**  
+Click on **"Linked services"** and then on the **"New"** button  
 
 ![sparkle](Pictures/053.png)
 
-Dans le liste des services liés, sélectionnez **"Azure Blob Storage"**
+In the list of related services, select **"Azure Blob Storage"**
 
 ![sparkle](Pictures/054.png)
 
-Donnez un nom au service lié, sélectionnez le compte de stockage puis testez la connexion en cliquant sur **"Test connection"** (1). Une fois le test réussi, cliquez sur le bouton **"Create"** (2).
+Name the linked service, select the storage account and then test the connection by clicking on **"Test connection"** (1). Once the test is successful, click the **"Create"** button (2).
 
 ![sparkle](Pictures/055.png)
 
-### Service lié Azure File Storage
+### Azure File Storage linked service
 
-Créez un nouveau service lié de type **"Azure File Storage"**
+Create a new  **"Azure File Storage"** linked service
 
 ![sparkle](Pictures/056.png)
 
-Puis complétez les informations de connexion
+Then complete the login information
 
 ![sparkle](Pictures/057.png)
 
-### Service lié Azure SQL Database
+### Azure SQL Database linked service
 
-Enfin, Créez un service lié de type **"Azure SQL Database"**
+Finally, create an **"Azure SQL Database"** linked service
 
 ![sparkle](Pictures/058.png)
 
-Puis complétez les informations de connexion
+Then complete the login information
 
 ![sparkle](Pictures/059.png)
 
-Vous devez avoir en tout 3 services liés
+You should have 3 linked services
 
 ![sparkle](Pictures/060.png)
 
-## Création du pipeline
+## Pipeline creation
 
-Ci-dessous une vue globale du pipeline que nous allons créer 
+Below is a global view of the pipeline we're going to create 
 
 
 ![sparkle](Pictures/061.png)
 
 
-### Création des "Datasets"
-#### Création du "Blob Storage Dataset"
+### Datasets
+#### Blob Storage Dataset
 
-Nous allons commencer par créer nos *"Datasets"* afin d'accéder à notre procédure stockée. notre *"blob storage"* et le *"file storage"*
+We'll start by creating our "Datasets" to access our stored procedure, our "blob storage" and our "file storage"
 
-Dans la console Azure Data Factory, sur la gauche, cliquez sur le bouton **"+"** puis sur **"Dataset"**
+In the Azure Data Factory console on the left, click the **"Dataset"** button
 
 ![sparkle](Pictures/062.png)
 
-Choisissez un *"Dataset"* de type **"Azure Blob Storage"** puis cliquez sur le bouton **"Continue"**
+Choose an **"Azure Blob Storage"** Dataset and click **"Continue"**
 
 ![sparkle](Pictures/063.png)
 
-Choisissez le format **"DelimitedText"** puis cliquez sur le bouton **"Continue"**
+Choose the format **"DelimitedText"** and then click the **"Continue"** button.
+(You can't choose the binary type because the source must also be of the binary type. Now the copying activity that we will do in our pipeline will have a procedure stored as a source)
 
 ![sparkle](Pictures/064.png)
 
-Entrez les informations de votre stockage blob puis cliquez sur le bouton **"OK"**
+Enter your blob storage information and click the button **"OK"**
 
 ![sparkle](Pictures/065.png)
 
-Une fois le *"Dataset"* créé, cliquez sur **"Parameters"**, puis sur le bouton **"+ New"**. Donnez un nom au paramètre. Ici je vais nommer mon paramètre **"FileName"**
+Once the Dataset is created, click **"Parameters"** and then the **"New"** button. Give the setting a name. Here I'm going to name my setting "FileName"
 
 ![sparkle](Pictures/066.png)
 
-Cliquez sur l'onglet **"Connection"**, puis dans le champ **"File"**. Cliquez ensuite sur le lien **"Add dynamic content"**
+Click on the **"Connection"** tab, then in the field **"File"**. Then click on the link **"Add dynamic content"**
+
 
 ![sparkle](Pictures/067.png)
 
-Le volet **"Add dynamic content"** apparaît. rajoutez l'expression
+The **"Add dynamic content"** component appears. Add the following expression:
+
 
 ```Javascript
  @dataset().FileName 
 ```
 
- Cliquez sur le bouton **"Finish"**
+ Click the **"Finish"** button
 
 ![sparkle](Pictures/068.png)
 
-Notre premier *"Dataset"* est prêt. Cliquez sur le bouton **"Publish all"** et publiez le *"dataset"*
+ Our first Dataset is ready. Click the **"Publish all"** button and publish the dataset
+
 
 ![sparkle](Pictures/069.png)
 
 
-#### Création du "File Storage Dataset"
+#### Azure File Storage Dataset
 
-Dans la console Azure Data Factory, sur la gauche, cliquez sur le bouton **"+"** puis sur **"Dataset"**
+In the Azure Data Factory console, on the left, click **"+"** and then click **"Dataset"**
 
 ![sparkle](Pictures/062.png)
 
-Choisissez un *"Dataset"* de type **"Azure File Storage"** puis cliquez sur le bouton **"Continue"**
+Choose **"Azure File Storage"** Dataset and then click the **"Continue"** button.
 
 ![sparkle](Pictures/070.png)
 
-Choisissez le format **"DelimitedText"** puis cliquez sur le bouton **"Continue"**
+Choose the format **"DelimitedText"** and then click the **"Continue"** button.
 
 ![sparkle](Pictures/064.png)
 
